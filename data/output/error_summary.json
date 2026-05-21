@@ -1,0 +1,18 @@
+{
+  "scam_type": {},
+  "error": {
+    "unsupported_token_uri": 1208,
+    "metadata_fetch_failed": 986,
+    "row_timeout_in_pool": 8,
+    "'list' object has no attribute 'get'": 1,
+    "'NoneType' object is not iterable": 1
+  },
+  "error_class": {
+    "contract_revert": 933,
+    "network": 994,
+    "contract_error": 77,
+    "direct_asset_fallback": 64,
+    "network_transient": 2,
+    "unexpected": 2
+  }
+}

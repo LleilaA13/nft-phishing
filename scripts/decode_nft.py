@@ -11,8 +11,7 @@ FIXES vs decode_nft1.py
 4. BscScan API key now clearly documented (see .env section below).
 5. IPFS gateway timeout raised to 12 s (was 4 s — caused most IPFS URIs to fail).
 6. Local IPFS gateway removed from defaults; only enabled via NFT_LOCAL_IPFS=1.
-7. NFTScan BSC API added as last-resort metadata fallback.
-8. metadata_fetch_failed rows also attempt NFTScan before final failure.
+
 
 .env file setup
 ---------------
@@ -22,7 +21,7 @@ Create a file named .env in the same directory as this script:
     BSCSCAN_API_KEY=YOUR_KEY_HERE                     # from bscscan.com/myapikey
     NFTSCAN_API_KEY=YOUR_KEY_HERE                     # from developer.nftscan.com (optional)
     NFT_CSV_PATH=retry_errors.csv
-    NFT_OUTPUT_PATH=nft_decoded_output.csv
+    NFT_OUTPUT_PATH=nft_output.csv
     NFT_MAX_WORKERS=20
     # NFT_FORCE=1       # uncomment to ignore cache and re-fetch everything
     # NFT_DEBUG=1       # uncomment for verbose logging
@@ -120,7 +119,8 @@ class Settings:
 def load_settings() -> Settings:
     load_dotenv()
     bsc_rpc = os.getenv("BSC_RPC", "https://bsc-dataseed1.binance.org")
-    input_csv = os.getenv("NFT_CSV_PATH", "retry_errors.csv")
+    input_csv = os.getenv(
+        "NFT_CSV_PATH", "/home/leyla/blockchain-phishing/data/nft_tokens.csv")
     if not input_csv:
         raise ValueError("Set NFT_CSV_PATH in your .env file")
 
@@ -129,8 +129,8 @@ def load_settings() -> Settings:
         bscscan_key=os.getenv("BSCSCAN_API_KEY", ""),
         nftscan_key=os.getenv("NFTSCAN_API_KEY", ""),
         input_csv=input_csv,
-        output_csv=os.getenv("NFT_OUTPUT_PATH", "data/output/nft_output.csv"),
-        cache_path=os.getenv("NFT_CACHE_PATH", "data/cache/nft_cache.db"),
+        output_csv=os.getenv("NFT_OUTPUT_PATH", "data/output/nft_rerun.csv"),
+        cache_path=os.getenv("NFT_CACHE_PATH", "data/cache/nft_cache_errors.db"),
         timeout_sec=int(os.getenv("NFT_HTTP_TIMEOUT", "15")),
         max_rows=int(os.getenv("NFT_MAX_ROWS", "0")) or None,
         run_all=os.getenv("NFT_RUN_ALL", "1") == "1",
