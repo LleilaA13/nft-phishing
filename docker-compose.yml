@@ -3,31 +3,13 @@ services:
     image: ipfs/kubo:v0.40.1
     container_name: ipfs
     command: daemon --enable-gc --migrate=true
-    #ports:
-    #  - 4001:4001
-    #  - 4001:4001/udp
-    #  - 127.0.0.1:8080:8080
-    #  - 127.0.0.1:5001:5001
+    ports:
+      - "4001:4001"          # Swarm port (talks to the public IPFS network)
+      - "127.0.0.1:8080:8080" # Gateway port (This is what your Python script hooks into)
+      - "127.0.0.1:5001:5001" # API port (For Web UI access)
     volumes:
       - ./export:/export
       - ./ipfs_data:/data/ipfs
-    network_mode: host
-    restart: always
-
-  nftipfs:
-    image: nftipfs
-    build:
-      context: .
-      dockerfile: ./Dockerfile
-    stdin_open: true
-    tty: true
-
-    network_mode: host
-    volumes:
-      - type: bind
-        source: ./docker_data
-        target: /app/data
-    
     restart: always
 
 volumes:
