@@ -2,10 +2,10 @@ import pandas as pd
 import os
 
 # Point this to the original dataset where you first found these URIs
-ORIGINAL_CSV = "/home/leyla/nft-phishing/archive/output/nft_full_rerun.csv"
+ORIGINAL_CSV = "../data/output/success_nfts.csv"
 
 # The new, fixed output file
-OUTPUT_CSV = "data/output/token_uris_with_addresses.csv"
+OUTPUT_CSV = "../data/output/token_uris_with_addresses_success.csv"
 
 
 def main():
@@ -19,7 +19,7 @@ def main():
     df.columns = df.columns.str.strip()  # Clean headers just in case
 
     # FIXED: The raw dataset uses 'extracted_urls' for the links!
-    uri_col = 'token_uri_resolved'
+    uri_col = 'token_uri'
 
     if 'address' in df.columns and uri_col in df.columns:
         print("Columns found! Extracting...")
