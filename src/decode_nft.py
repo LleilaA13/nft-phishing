@@ -153,7 +153,7 @@ def get_nft_data(w3, session, address: str, tx_hash: str) -> dict:
         result["token_uri"] = uri
 
         # --- NEW: HANDLE ON-CHAIN BASE64/UTF8 DATA ---
-        if uri.startswith("data:application/json"):
+        if uri.startswith("data:"):
             try:
                 # Split exactly ONCE at the first comma to separate header from payload
                 header, payload = uri.split(",", 1)
@@ -181,9 +181,22 @@ def get_nft_data(w3, session, address: str, tx_hash: str) -> dict:
             result["error"] = "Invalid URI format"
             return result
 
-        response = session.get(fetch_url, timeout=45, verify=False)
-        response.raise_for_status()
-
+        try:
+            # Try your local Docker IPFS or the standard HTTP url (shorter timeout)
+            response = session.get(fetch_url, timeout=15, verify=False)
+            response.raise_for_status()
+        except (requests.exceptions.Timeout, requests.exceptions.ConnectionError, requests.exceptions.HTTPError) as e:
+            # FALLBACK: If local IPFS times out or 504s, try a public gateway
+            if "127.0.0.1:8080/ipfs/" in fetch_url:
+                public_url = fetch_url.replace("http://127.0.0.1:8080/ipfs/", "https://cloudflare-ipfs.com/ipfs/")
+                response = requests.sessions.session.get(public_url, timeout=15, verify=False)
+                response.raise_for_status()
+            else:
+                raise e # Re-raise if it wasn't an IPFS issue
+            
+        if 'text/html' in response.headers.get('Content-Type', '').lower():
+            result["error"] = "Contract/Parse Error: Returned HTML/CAPTCHA instead of JSON"
+            return result
         # --- NEW: HANDLE MALFORMED UTF-8 BOM JSONS ---
         try:
             # If the server politely says it's JSON, use the built-in parser
