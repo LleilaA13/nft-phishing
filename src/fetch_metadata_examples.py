@@ -14,7 +14,7 @@ import urllib3
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # --- CONFIGURATION ---
-INPUT_CSV = "../data/NFT examples - Sheet1.csv"
+INPUT_CSV = "../data/shared_nfts/NFT examples - Sheet1.csv"
 OUTPUT_CSV = "../data/output/examples_decoded_metadata.csv"
 BSC_RPC = "https://bsc-dataseed1.binance.org"
 IPFS_GATEWAY = "http://127.0.0.1:8080/ipfs/"

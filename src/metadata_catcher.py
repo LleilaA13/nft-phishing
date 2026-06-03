@@ -142,7 +142,7 @@ def get_token_statistics(token_uris_list):
     print('total token uris longer than 2083 chars: ', len(callable_token_uris_list) - len(to_search_token_uris))
 
 
-async def main(input_dir='../data/output/error_nfts.csv', out_file='metadata_snapshot_{}.csv'):
+async def main(input_dir='../data/output/true_negative_nfts.csv', out_file='metadata_TN_{}.csv'):
     datetime_now = datetime.datetime.now()
     print('#### {}: starting metadata scraper ###'.format(datetime_now))
 
@@ -215,4 +215,4 @@ async def main(input_dir='../data/output/error_nfts.csv', out_file='metadata_sna
 
 if __name__ == "__main__":
     # Ensure this matches your actual input file name and desired output name
-    asyncio.run(main('../data/output/success_nfts.csv', 'metadata_snapshot_{}.csv'))
+    asyncio.run(main('../data/output/error_nfts.csv', '../data/metadata_catcher/errors_metadata.csv'))

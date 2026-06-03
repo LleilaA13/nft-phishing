@@ -2,10 +2,10 @@ import pandas as pd
 import os
 
 # Point this to the original dataset where you first found these URIs
-ORIGINAL_CSV = "../data/output/success_nfts.csv"
+ORIGINAL_CSV = "../data/output/true_negative_nfts.csv"
 
 # The new, fixed output file
-OUTPUT_CSV = "../data/output/token_uris_with_addresses_success.csv"
+OUTPUT_CSV = "../data/output/token_uris_with_addresses_TN.csv"
 
 
 def main():
