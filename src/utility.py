@@ -37,11 +37,15 @@ def save_as_pickle(text_list, outfile_name):
 
 def update_csv(csv_filename, data):
     if len(data) > 0:
-        # Ensure data directory exists
-        os.makedirs('data', exist_ok=True)
-        path = 'data/' + csv_filename
+        # Dynamically extract the directory path from the provided filename
+        file_dir = os.path.dirname(csv_filename)
+
+        # If the path contains a directory (e.g., '../data/'), ensure it exists
+        if file_dir:
+            os.makedirs(file_dir, exist_ok=True)
+
         # Use POSIX advisory lock to prevent concurrent writer corruption across processes
-        with open(path, 'a', encoding='UTF8', newline='') as f:
+        with open(csv_filename, 'a', encoding='UTF8', newline='') as f:
             try:
                 fcntl.flock(f.fileno(), fcntl.LOCK_EX)
                 writer = csv.writer(f, escapechar='\\')
@@ -58,7 +62,7 @@ def update_csv(csv_filename, data):
 # open a pickle file
 def open_pickle(filename, creation_type=dict, verbose=False):
     try:
-        with open('data/'+filename, 'rb') as fp:
+        with open(filename, 'rb') as fp:
             saved_file = pickle.load(fp)
     except:
         if verbose:

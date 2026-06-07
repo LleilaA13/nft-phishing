@@ -1,0 +1,14 @@
+CATEGORY,COUNT,PERCENTAGE
+No URI found,1378,44.31%
+404 Not Found,502,16.14%
+Rate limited (429),428,13.76%
+DNS failure (dead domain),284,9.13%
+Invalid URI,221,7.11%
+Server error (4xx/5xx),103,3.31%
+Timeout,62,1.99%
+Empty body (HTTP 200),41,1.32%
+403 Forbidden,37,1.19%
+On-Chain Parse Error,30,0.96%
+Server returned HTML,17,0.55%
+JSON parse failed,6,0.19%
+Other,1,0.03%
