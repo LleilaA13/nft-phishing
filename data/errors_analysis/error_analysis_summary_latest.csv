@@ -1,14 +1,13 @@
 CATEGORY,COUNT,PERCENTAGE
-No URI found,1378,44.31%
-404 Not Found,502,16.14%
-Rate limited (429),428,13.76%
-DNS failure (dead domain),284,9.13%
-Invalid URI,221,7.11%
-Server error (4xx/5xx),103,3.31%
-Timeout,62,1.99%
-Empty body (HTTP 200),41,1.32%
-403 Forbidden,37,1.19%
-On-Chain Parse Error,30,0.96%
-Server returned HTML,17,0.55%
-JSON parse failed,6,0.19%
-Other,1,0.03%
+No URI found on contract (even with exact ID) — Last revert/error,1434,50.94%
+[http] Network Error,889,31.58%
+Invalid URI,172,6.11%
+[ipfs_gateway] Network Error,165,5.86%
+"[http] Server returned an empty body (HTTP 200, from https",42,1.49%
+[http] Invalid URI,41,1.46%
+On-Chain Parse Error,29,1.03%
+[http] Server returned HTML instead of JSON (from https,23,0.82%
+[ipfs_gateway] Server returned HTML instead of JSON (from http,13,0.46%
+[http] JSON parse failed (from https,4,0.14%
+[ipfs_gateway] JSON parse failed (from http,2,0.07%
+[arweave] Network Error,1,0.04%

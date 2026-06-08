@@ -4,7 +4,6 @@ import gzip
 import logging
 from urllib.parse import urlparse, unquote, quote
 import pandas as pd
-from urllib3.util.retry import Retry
 import requests
 from web3 import Web3
 from concurrent.futures import ThreadPoolExecutor, wait, FIRST_COMPLETED, as_completed
@@ -57,7 +56,8 @@ TIMEOUT_BY_SOURCE = {
     "arweave":               10,  # arweave.net can be slow
     "arweave_json":          10,
 }
-DEFAULT_TIMEOUT = 8  # fallback timeout for any sources not explicitly listed in TIMEOUT_BY_SOURCE
+# fallback timeout for any sources not explicitly listed in TIMEOUT_BY_SOURCE
+DEFAULT_TIMEOUT = 8
 
 # Expanded ABI to include evasion methods (getURI, metadataURI)
 URI_ABI = [
@@ -121,15 +121,10 @@ def _get_thread_session() -> requests.Session:
             "Accept": "application/json, text/plain, */*",
             "Accept-Language": "en-US,en;q=0.9",
         })
-        retry = Retry(
-            total = 3, 
-            backoff_fator = 1,
-            status_forcelist = [429, 500, 502, 503, 504],
-            allowed_methods = ["GET"]
-        )
+
         adapter = requests.adapters.HTTPAdapter(
             # Keep a small pool of connections for efficiency, but not too many to overwhelm the local node
-            pool_connections=4, pool_maxsize=4, max_retries=retry)
+            pool_connections=4, pool_maxsize=4)
         s.mount("http://", adapter)
         s.mount("https://", adapter)
         s.max_redirects = 10  # quindi 1 o 10?
@@ -172,10 +167,13 @@ def get_exact_token_id(w3, tx_hash: str, address: str):
         pass
     return None
 
+
 def is_rpc_rate_limited(exc: Exception) -> bool:
     """Detects if an RPC error is likely due to rate limiting."""
     msg = str(exc).lower()
-    return "429" in msg or "rate limit" in msg or "too many requests" in msg # this is a heuristic and may not catch all cases, but it looks for common indicators of rate limiting in the error message
+    # this is a heuristic and may not catch all cases, but it looks for common indicators of rate limiting in the error message
+    return "429" in msg or "rate limit" in msg or "too many requests" in msg
+
 
 def extract_uri_from_contract(w3, address: str, tx_hash: str) -> tuple[str | None, int | None, str | None]:
     """
@@ -191,16 +189,13 @@ def extract_uri_from_contract(w3, address: str, tx_hash: str) -> tuple[str | Non
     try:
         code = w3.eth.get_code(checksum_addr)
         if code in (b'', b'\x00'):
-            # b'' can mean EOA (never had code) or self-destructed contract.
-            # Both are unresolvable for URI purposes.
             return None, None, "True Negative: No contract code (EOA or self-destructed)"
     except Exception as e:
         if is_rpc_rate_limited(e):
             return None, None, f"RPC Error: Rate limited — {e}"
         return None, None, f"RPC Error: Could not fetch bytecode — {e}"
 
-
-    try:  # creates a Web3 contract instance for the target address using the expanded ABI that includes common evasion methods. If this fails, we won't be able to call any functions, so we return an error.
+    try:
         contract = w3.eth.contract(address=checksum_addr, abi=URI_ABI)
     except Exception as e:
         return None, None, f"RPC Error: Could not instantiate contract — {e}"
@@ -208,7 +203,6 @@ def extract_uri_from_contract(w3, address: str, tx_hash: str) -> tuple[str | Non
     uri = None
     resolved_token_id = None
     last_err = None
-
 
     # 1. Token-ID-based functions first (most reliable for ERC-721/1155)
     for token_id in [1, 0, 2, 1000, 10000]:
@@ -231,25 +225,21 @@ def extract_uri_from_contract(w3, address: str, tx_hash: str) -> tuple[str | Non
         if uri:
             break
 
+    # 2. No-argument evasion functions — only if step 1 found nothing
+    if not uri:
+        for func_name in ['baseURI', 'contractURI', 'tokenURI', 'uri', 'getURI', 'metadataURI']:
+            try:
+                candidate = getattr(contract.functions, func_name)().call()
+                if isinstance(candidate, str) and candidate.strip():
+                    uri = candidate
+                    break
+            except Exception as e:
+                if is_rpc_rate_limited(e):
+                    return None, None, f"RPC Error: Rate limited — {e}"
+                last_err = e
+                continue
 
-    # 2. No-argument evasion functions
-    '''tries calling each fct with no arguments, which is a common evasion technique. 
-    If any of these calls succeed and return a non-empty string, we take that as the URI and skip the rest of the process.'''
-    for func_name in ['baseURI', 'contractURI', 'tokenURI', 'uri', 'getURI', 'metadataURI']:
-        try:
-            candidate = getattr(contract.functions, func_name)().call()
-            if isinstance(candidate, str) and candidate.strip():
-                uri = candidate
-                break
-        except Exception as e:
-            if is_rpc_rate_limited(e):
-                return None, None, f"RPC Error: Rate limited — {e}"
-            last_err = e
-            continue
-
-
-
-    # 3. Exact token ID extracted from transaction logs
+    # 3. Exact token ID extracted from transaction logs — only if steps 1 and 2 found nothing
     if not uri:
         exact_id = get_exact_token_id(w3, tx_hash, address)
         if exact_id is not None:
@@ -271,16 +261,13 @@ def extract_uri_from_contract(w3, address: str, tx_hash: str) -> tuple[str | Non
                     continue
 
     if not uri:
-        # generic error message if we couldn't find any URI after all attempts
         error_msg = "No URI found on contract (even with exact ID)"
         if last_err:
-            # include a snippet of the last error for debugging, truncated to 200 chars
             err_str = str(last_err).replace('\n', ' ')[:200]
             error_msg += f" — Last revert/error: {err_str}"
         return None, None, error_msg
 
     # Sanitise the raw URI string
-    # remove null bytes and whitespace from the ends
     uri = uri.split('\x00')[0].strip()
     if not uri:
         return None, None, "Invalid URI: contained only null bytes"
@@ -289,7 +276,6 @@ def extract_uri_from_contract(w3, address: str, tx_hash: str) -> tuple[str | Non
     uri = re.sub(r'(:\d{2,5})([a-zA-Z])', r'\1/\2', uri)
 
     # Reject unfilled template literals ({address}, {contract}, {id})
-    # reject URIs that still contain unfilled placeholders, as they are unlikely to resolve correctly and may indicate a misconfigured contract
     if re.search(r'\{(address|contract|id)\}', unquote(uri), re.IGNORECASE):
         return None, None, f"Invalid URI: unfilled template literal in '{uri}'"
 
@@ -483,7 +469,7 @@ def fetch_metadata_over_http(session: requests.Session, source_label: str, fetch
         # orchestrator — each gateway is a separate candidate, so we just
         # report this URL's failure and let the caller try the next one.
         return None, f"Network Error: {primary_err}"
-    
+
     final_url = response.url  # after redirects
     content_type = response.headers.get('Content-Type', '')
 
@@ -550,7 +536,8 @@ def get_nft_data(address: str, tx_hash: str) -> dict:
         result["error"] = rpc_error
         return result
 
-    result["token_id"] = resolved_token_id
+    result["token_id"] = str(
+        resolved_token_id) if resolved_token_id is not None else None
     result["token_uri"] = uri
 
     # Build ordered list of URLs to try for this URI
@@ -606,7 +593,6 @@ def _flush_results(
     results_df = pd.DataFrame(results)
     src = pending_df.drop(columns=["error"], errors="ignore")
     merged = pd.merge(src, results_df, on="address", how="inner")
-
     new_success_df = merged[merged["error"].isna()]
     new_error_df = merged[merged["error"].notna()]
 
@@ -616,12 +602,12 @@ def _flush_results(
     if not new_success_df.empty:
         write_header = not os.path.exists(success_csv)
         new_success_df.to_csv(success_csv, mode="a",
-                            index=False, header=write_header)
+                              index=False, header=write_header)
         log.info(f"Flushed {len(new_success_df)} successes to {success_csv}")
 
     if not new_error_df.empty:
         if os.path.exists(error_csv):
-            existing = pd.read_csv(error_csv)
+            existing = pd.read_csv(error_csv, dtype={"token_id": str})
             combined = pd.concat([existing, new_error_df])
             deduped = combined.drop_duplicates(subset=["address"], keep="last")
             deduped.to_csv(error_csv, index=False)
@@ -648,7 +634,7 @@ def main():
     successful_addresses: set[str] = set()
     if os.path.exists(SUCCESS_CSV):
         try:
-            success_df = pd.read_csv(SUCCESS_CSV)
+            success_df = pd.read_csv(SUCCESS_CSV, dtype={"token_id": str})
             successful_addresses = set(
                 success_df['address'].astype(str).str.lower().str.strip())
             log.info(
@@ -723,18 +709,7 @@ def main():
     # Final flush
     _flush_results(results, pending_df, SUCCESS_CSV, ERROR_CSV)
 
-    # If this run produced zero errors overall, remove the stale error file
-    if not interrupted and os.path.exists(ERROR_CSV):
-        try:
-            err_df = pd.read_csv(ERROR_CSV)
-            # Only wipe if every address in the error file was successfully processed this run
-            resolved = set(pending_df['address'])
-            still_errored = err_df[~err_df['address'].isin(resolved)]
-            if still_errored.empty:
-                os.remove(ERROR_CSV)
-                log.info("Cleared error file — zero errors!")
-        except Exception:
-            pass
+
 
     elapsed = time.time() - start_time
     log.info(
